@@ -11,15 +11,27 @@ app.config[
 ] = "mongodb+srv://admin:admin@cluster0.pan4f.gcp.mongodb.net/yousician?ssl_cert_reqs=CERT_NONE"
 mongo = PyMongo(app)
 
+ITEMS_PER_PAGE = 10
+
 
 @app.route("/songs", methods=["GET"])
 def get_songs():
-    songs = mongo.db.songs.find()
-    ret = []
+    last_id = request.args.get("from")
+
+    if last_id is None:
+        songs = mongo.db.songs.find().limit(ITEMS_PER_PAGE)
+    else:
+        songs = mongo.db.songs.find({"_id": {"$gt": ObjectId(last_id)}}).limit(
+            ITEMS_PER_PAGE
+        )
+
+    ret = {"songs": [], "last_id": ""}
     for song in songs:
         song["_id"] = str(song["_id"])
-        ret.append(song)
-    return jsonify(ret)
+        ret["songs"].append(song)
+
+    ret["last_id"] = ret["songs"][-1]["_id"] if len(ret["songs"]) > 0 else ""
+    return ret
 
 
 @app.route("/songs/avg/difficulty", methods=["GET"])
