@@ -2,10 +2,12 @@ from flask import Flask, jsonify, request
 from werkzeug.exceptions import HTTPException
 from werkzeug import Response as ErrResponse
 from flask_pymongo import PyMongo
+from marshmallow import ValidationError
 from pymongo import ReturnDocument
 from http import HTTPStatus
-from bson.objectid import ObjectId
-from .http_error import UnexpectedError, ItemNotFoundError
+from bson.objectid import ObjectId, InvalidId
+from .http_error import UnexpectedError, ItemNotFoundError, InvalidRequestError
+from .schema import SongRatingPayload
 import re
 import json
 
@@ -21,7 +23,7 @@ SONG_COLLECTION = "songs"
 @app.errorhandler(HTTPException)
 def handle_exception(e: HTTPException) -> ErrResponse:
     response = e.get_response()
-    response.data = json.dumps({"statusCode": e.code, "message": e.description})
+    response.data = json.dumps({"status_code": e.code, "message": e.description})
     response.content_type = "application/json"
     return response
 
@@ -82,31 +84,37 @@ def search_song():
 
 @app.route("/songs/rating", methods=["POST"])
 def rate_song():
-    payload = dict(request.json)
-    song = mongo.db[SONG_COLLECTION].find_one_and_update(
-        {"_id": ObjectId(payload["_id"])},
-        {"$push": {"rates": payload["rating"]}},
-        projection={"rates": True, "_id": True},
-        return_document=ReturnDocument.AFTER,
-    )
+    try:
+        payload = SongRatingPayload().load(request.json)
+        song = mongo.db[SONG_COLLECTION].find_one_and_update(
+            {"_id": ObjectId(payload["_id"])},
+            {"$push": {"rates": payload["rating"]}},
+            projection={"rates": True, "_id": True},
+            return_document=ReturnDocument.AFTER,
+        )
 
-    if song is None:
-        raise ItemNotFoundError("Song not found with _id {}".format(payload["_id"]))
+        if song is None:
+            raise ItemNotFoundError("Song not found with _id {}".format(payload["_id"]))
 
-    song["_id"] = str(song["_id"])
-    return song
+        song["_id"] = str(song["_id"])
+        return song
+    except ValidationError as e:
+        raise InvalidRequestError(e.messages)
 
 
 @app.route("/songs/avg/rating/<song_id>", methods=["GET"])
 def get_song_avg_rating(song_id):
-    song = mongo.db[SONG_COLLECTION].find_one({"_id": ObjectId(song_id)})
+    try:
+        song = mongo.db[SONG_COLLECTION].find_one({"_id": ObjectId(song_id)})
 
-    if song is None:
-        raise ItemNotFoundError("Song not found with _id {}".format(song_id))
+        if song is None:
+            raise ItemNotFoundError("Song not found with _id {}".format(song_id))
 
-    ret = {
-        "lowest": min(song["rates"]),
-        "highest": max(song["rates"]),
-        "average": sum(song["rates"]) / len(song["rates"]),
-    }
-    return ret
+        ret = {
+            "lowest": min(song["rates"]),
+            "highest": max(song["rates"]),
+            "average": sum(song["rates"]) / len(song["rates"]),
+        }
+        return ret
+    except InvalidId as e:
+        raise InvalidRequestError("{} is not valid ObjectId".format(song_id))

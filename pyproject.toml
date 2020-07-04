@@ -9,6 +9,7 @@ python = "^3.8"
 flask = "^1.1.2"
 flask-pymongo = "^2.3.0"
 pymongo = {extras = ["srv"], version = "^3.10.1"}
+marshmallow = "^3.6.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
