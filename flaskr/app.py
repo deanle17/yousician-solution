@@ -52,34 +52,42 @@ def get_songs():
 
 @app.route("/songs/avg/difficulty", methods=["GET"])
 def get_average_songs_difficulty():
-    level = request.args.get("level")
-    condition = {"level": int(level)} if level is not None else {}
+    try:
+        level = request.args.get("level")
+        condition = {"level": int(level)} if level is not None else {}
 
-    songs = list(mongo.db[SONG_COLLECTION].find(condition))
+        songs = list(mongo.db[SONG_COLLECTION].find(condition))
 
-    if len(songs) == 0:
-        raise ItemNotFoundError("No song found with level {}".format(level))
+        if len(songs) == 0:
+            raise ItemNotFoundError("No song found with level {}".format(level))
 
-    difficulties = list(map(lambda song: song["difficulty"], list(songs)))
-    avg_difficulty = sum(difficulties) / len(difficulties)
-    return {"avg_difficulty": avg_difficulty}
+        difficulties = list(map(lambda song: song["difficulty"], list(songs)))
+        avg_difficulty = sum(difficulties) / len(difficulties)
+        return {"avg_difficulty": avg_difficulty}
+    except Exception as e:
+        print(e)
+        raise UnexpectedError()
 
 
 @app.route("/songs/search", methods=["GET"])
 def search_song():
-    query = request.args.get("q")
-    query = query if query is not None else ""
-    condition = {
-        "$or": [{"artist": re.compile(query, re.IGNORECASE)}, {"title": re.compile(query, re.IGNORECASE)}]
-    }
+    try:
+        query = request.args.get("q")
+        query = query if query is not None else ""
+        condition = {
+            "$or": [{"artist": re.compile(query, re.IGNORECASE)}, {"title": re.compile(query, re.IGNORECASE)}]
+        }
 
-    songs = mongo.db[SONG_COLLECTION].find(condition)
+        songs = mongo.db[SONG_COLLECTION].find(condition)
 
-    ret = []
-    for song in songs:
-        song["_id"] = str(song["_id"])
-        ret.append(song)
-    return jsonify(ret)
+        ret = []
+        for song in songs:
+            song["_id"] = str(song["_id"])
+            ret.append(song)
+        return jsonify(ret)
+    except Exception as e:
+        print(e)
+        raise UnexpectedError()
 
 
 @app.route("/songs/rating", methods=["POST"])
@@ -100,6 +108,9 @@ def rate_song():
         return song
     except ValidationError as e:
         raise InvalidRequestError(e.messages)
+    except Exception as e:
+        print(e)
+        raise UnexpectedError()
 
 
 @app.route("/songs/avg/rating/<song_id>", methods=["GET"])
@@ -118,3 +129,6 @@ def get_song_avg_rating(song_id):
         return ret
     except InvalidId as e:
         raise InvalidRequestError("{} is not valid ObjectId".format(song_id))
+    except Exception as e:
+        print(e)
+        raise UnexpectedError()
