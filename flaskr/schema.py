@@ -11,8 +11,7 @@ class SongRatingPayload(Schema):
         if not ObjectId.is_valid(_id):
             raise ValidationError("{} is not valid ObjectId".format(_id))
 
-    
     @validates("rating")
     def validate_rating(self, rating: int) -> None:
-        if rating is not in range(1, 5):
+        if rating < 1 or rating > 5:
             raise ValidationError("Rating must be in between 1 and 5")

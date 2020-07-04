@@ -8,16 +8,23 @@ from http import HTTPStatus
 from bson.objectid import ObjectId, InvalidId
 from .http_error import UnexpectedError, ItemNotFoundError, InvalidRequestError
 from .schema import SongRatingPayload
-import re
-import json
+import re, json, os
+
+
+MONGO_USER = os.environ["MONGO_USER"]
+MONGO_PASSWORD = os.environ["MONGO_PASSWORD"]
+DB_NAME = os.environ["DB_NAME"]
+ITEMS_PER_PAGE = 10
+SONG_COLLECTION = "songs"
+
 
 app = Flask(__name__)
 mongo = PyMongo(
-    app, "mongodb+srv://admin:admin@cluster0.pan4f.gcp.mongodb.net/yousician?ssl_cert_reqs=CERT_NONE"
+    app,
+    "mongodb+srv://{}:{}@cluster0.pan4f.gcp.mongodb.net/{}?ssl_cert_reqs=CERT_NONE".format(
+        MONGO_USER, MONGO_PASSWORD, DB_NAME
+    ),
 )
-
-ITEMS_PER_PAGE = 10
-SONG_COLLECTION = "songs"
 
 
 @app.errorhandler(HTTPException)
