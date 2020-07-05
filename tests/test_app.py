@@ -1,10 +1,5 @@
 """Integration test suite for app.py"""
 import json, os
-
-os.environ["MONGO_USER"] = "admin"
-os.environ["MONGO_PASSWORD"] = "admin"
-os.environ["DB_NAME"] = "test"
-
 from flaskr.app import app, mongo
 from http import HTTPStatus
 from flask_pymongo import PyMongo

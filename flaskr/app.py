@@ -8,10 +8,13 @@ from bson.objectid import ObjectId, InvalidId
 from .http_error import UnexpectedError, ItemNotFoundError, InvalidRequestError
 from .schema import SongRatingPayload
 import re, json, os
+from dotenv import load_dotenv
 
+load_dotenv()
 
 MONGO_USER = os.environ["MONGO_USER"]
 MONGO_PASSWORD = os.environ["MONGO_PASSWORD"]
+MONGO_HOST = os.environ["MONGO_HOST"]
 DB_NAME = os.environ["DB_NAME"]
 ITEMS_PER_PAGE = 10
 SONG_COLLECTION = "songs"
@@ -20,8 +23,8 @@ SONG_COLLECTION = "songs"
 app = Flask(__name__)
 mongo = PyMongo(
     app,
-    "mongodb+srv://{}:{}@cluster0.pan4f.gcp.mongodb.net/{}?tlsAllowInvalidCertificates=true".format(
-        MONGO_USER, MONGO_PASSWORD, DB_NAME
+    "mongodb+srv://{}:{}@{}/{}?tlsAllowInvalidCertificates=true".format(
+        MONGO_USER, MONGO_PASSWORD, MONGO_HOST, DB_NAME
     ),
 )
 
