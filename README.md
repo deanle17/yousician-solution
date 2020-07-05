@@ -1,6 +1,6 @@
 # Yousician assignment solution
 
-This is the solution to interview assignment for Backend Developer position at Yousician. The solution is written in **Python 3.8** using **Flask** framework, **Poetry** as dependency manager and **Pytest** for testing purpose.
+This is the solution to interview assignment for Backend Developer position at Yousician. The solution is written in **Python 3.8** using **Flask** framework, **Poetry** as dependency manager and **Pytest** for testing purpose. The databased used in this assignment is MongoDB, which is hosted on MongoDB Atlas.
 
 ## Getting started
 
@@ -28,11 +28,15 @@ To clean up files like **pycache**, etc.:
 clean_up
 ```
 
-**Note:** In case you encounter `command not found: poetry`, you need to have **Poetry** bin's directory in your `PATH`. Probably, you can try:
+**Note:**
+
+-   In case you encounter `command not found: poetry`, you need to have **Poetry** bin's directory in your `PATH`. Probably, you can try:
 
 ```bash
 export PATH=$HOME/.poetry/bin:$PATH
 ```
+
+-   You need to have `.env` file which contains authentication to the database. I will provide this file via email.
 
 ## API
 
