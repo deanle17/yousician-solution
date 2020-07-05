@@ -4,7 +4,6 @@ from werkzeug import Response as ErrResponse
 from flask_pymongo import PyMongo
 from marshmallow import ValidationError
 from pymongo import ReturnDocument
-from http import HTTPStatus
 from bson.objectid import ObjectId, InvalidId
 from .http_error import UnexpectedError, ItemNotFoundError, InvalidRequestError
 from .schema import SongRatingPayload
@@ -21,7 +20,7 @@ SONG_COLLECTION = "songs"
 app = Flask(__name__)
 mongo = PyMongo(
     app,
-    "mongodb+srv://{}:{}@cluster0.pan4f.gcp.mongodb.net/{}?ssl_cert_reqs=CERT_NONE".format(
+    "mongodb+srv://{}:{}@cluster0.pan4f.gcp.mongodb.net/{}?tlsAllowInvalidCertificates=true".format(
         MONGO_USER, MONGO_PASSWORD, DB_NAME
     ),
 )
@@ -66,11 +65,15 @@ def get_average_songs_difficulty():
         songs = list(mongo.db[SONG_COLLECTION].find(condition))
 
         if len(songs) == 0:
-            raise ItemNotFoundError("No song found with level {}".format(level))
+            raise ItemNotFoundError("No songs found with level {}".format(level))
 
         difficulties = list(map(lambda song: song["difficulty"], list(songs)))
         avg_difficulty = sum(difficulties) / len(difficulties)
-        return {"avg_difficulty": avg_difficulty}
+        avg_difficulty = "{0:.2f}".format(avg_difficulty)
+
+        return {"avg_difficulty": float(avg_difficulty)}
+    except ItemNotFoundError as e:
+        raise e
     except Exception as e:
         print(e)
         raise UnexpectedError()
@@ -91,6 +94,7 @@ def search_song():
         for song in songs:
             song["_id"] = str(song["_id"])
             ret.append(song)
+
         return jsonify(ret)
     except Exception as e:
         print(e)
@@ -124,7 +128,6 @@ def rate_song():
 def get_song_avg_rating(song_id):
     try:
         song = mongo.db[SONG_COLLECTION].find_one({"_id": ObjectId(song_id)})
-
         if song is None:
             raise ItemNotFoundError("Song not found with _id {}".format(song_id))
 
@@ -132,10 +135,19 @@ def get_song_avg_rating(song_id):
             "lowest": min(song["rates"]),
             "highest": max(song["rates"]),
             "average": sum(song["rates"]) / len(song["rates"]),
+            "count": len(song["rates"]),
         }
+
         return ret
     except InvalidId as e:
         raise InvalidRequestError("{} is not valid ObjectId".format(song_id))
+    except KeyError as e:
+        return {
+            "lowest": -1,
+            "highest": -1,
+            "average": -1,
+            "count": 0,
+        }
     except Exception as e:
         print(e)
         raise UnexpectedError()
