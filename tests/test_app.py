@@ -10,6 +10,8 @@ from http import HTTPStatus
 from flask_pymongo import PyMongo
 import pytest
 
+client = app.test_client()
+
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
@@ -32,50 +34,60 @@ def test_get_songs_success():
 
     Should retrieve the song correctly
     """
-    client = app.test_client()
-    url = "/songs"
 
-    response = client.get(url)
+    def without_pagination():
+        url = "/songs"
+        response = client.get(url)
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert len(responsed_data["songs"]) == 10
-    assert responsed_data["songs"][0]["title"] == "Lycanthropic Metamorphosis"
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert len(responsed_data["songs"]) == 10
+        assert responsed_data["songs"][0]["title"] == "Lycanthropic Metamorphosis"
 
-    """With pagination"""
-    url = "/songs?from={}".format(responsed_data["last_id"])
+        return responsed_data["last_id"]
 
-    response = client.get(url)
+    last_id = without_pagination()
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert len(responsed_data["songs"]) == 1
-    assert responsed_data["songs"][0]["title"] == "Babysitting"
+    def with_pagination():
+        url = "/songs?from={}".format(last_id)
+
+        response = client.get(url)
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert len(responsed_data["songs"]) == 1
+        assert responsed_data["songs"][0]["title"] == "Babysitting"
+
+    with_pagination()
 
 
 def test_get_average_songs_difficulty_success():
     """
     GET /songs/avg/diffulty
 
-    Should retrieve the song average difficulty correctly with level
+    Should retrieve the song average difficulty correctly
     """
-    client = app.test_client()
-    url = "/songs/avg/difficulty"
 
-    response = client.get(url)
+    def without_level():
+        url = "/songs/avg/difficulty"
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert responsed_data["avg_difficulty"] == 10.32
+        response = client.get(url)
 
-    """With query string"""
-    url = "/songs/avg/difficulty?level=9"
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert responsed_data["avg_difficulty"] == 10.32
 
-    response = client.get(url)
+    def with_level():
+        url = "/songs/avg/difficulty?level=9"
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert responsed_data["avg_difficulty"] == 9.69
+        response = client.get(url)
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert responsed_data["avg_difficulty"] == 9.69
+
+    without_level()
+    with_level()
 
 
 def test_get_average_songs_difficulty_fail():
@@ -84,14 +96,13 @@ def test_get_average_songs_difficulty_fail():
 
     Should return NOT FOUND if there is no songs with requested level
     """
-    client = app.test_client()
-    url = "/songs/avg/difficulty?level=100"
+    url = "/songs/avg/difficulty?level=9999"
 
     response = client.get(url)
 
     responsed_data = json.loads(response.data)
     assert response.status_code == HTTPStatus.NOT_FOUND
-    assert responsed_data["message"] == "No songs found with level 100"
+    assert responsed_data["message"] == "No songs found with level 9999"
 
 
 def test_song_search_success():
@@ -100,27 +111,31 @@ def test_song_search_success():
 
     Should return songs that have artist or title matches search string
     """
-    client = app.test_client()
-    url = "/songs/search?q=finger"
 
-    response = client.get(url)
+    def has_2_matches():
+        url = "/songs/search?q=finger"
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert len(responsed_data) == 2
-    assert responsed_data[0]["artist"] == "Mr Fastfinger"
-    assert responsed_data[0]["title"] == "Awaki-Waki"
-    assert responsed_data[1]["artist"] == "The Yousicians"
-    assert responsed_data[1]["title"] == "Greasy Fingers - boss level"
+        response = client.get(url)
 
-    """Return empty list if search string have no matches"""
-    url = "/songs/search?q=woohoo"
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert len(responsed_data) == 2
+        assert responsed_data[0]["artist"] == "Mr Fastfinger"
+        assert responsed_data[0]["title"] == "Awaki-Waki"
+        assert responsed_data[1]["artist"] == "The Yousicians"
+        assert responsed_data[1]["title"] == "Greasy Fingers - boss level"
 
-    response = client.get(url)
+    def has_0_matches():
+        url = "/songs/search?q=woohoo"
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert len(responsed_data) == 0
+        response = client.get(url)
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert len(responsed_data) == 0
+
+    has_2_matches()
+    has_0_matches()
 
 
 def test_rate_song_success():
@@ -129,7 +144,6 @@ def test_rate_song_success():
 
     Should add rating to the song and return the updated data
     """
-    client = app.test_client()
     response = client.get("/songs")
     responsed_data = json.loads(response.data)
     song_id = json.loads(response.data)["songs"][0]["_id"]
@@ -153,36 +167,48 @@ def test_rate_song_fail():
     """
     POST /songs/rating
 
-    Should return BAD REQUEST if payload is invalid
+    Should return BAD REQUEST if request payload is doesn't match schema
     """
-    client = app.test_client()
     response = client.get("/songs")
     responsed_data = json.loads(response.data)
     song_id = json.loads(response.data)["songs"][0]["_id"]
 
     url = "/songs/rating"
 
-    response = client.post(
-        url, data=json.dumps({"_id": song_id, "haha": 5}), headers={"Content-Type": "application/json"}
-    )
+    def invalid_payload():
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.BAD_REQUEST
-    assert responsed_data["message"] == {
-        "rating": ["Missing data for required field."],
-        "haha": ["Unknown field."],
-    }
+        response = client.post(
+            url, data=json.dumps({"_id": song_id, "haha": 5}), headers={"Content-Type": "application/json"}
+        )
 
-    """
-    Should return BAD REQUEST if rating is not in range 1 to 5
-    """
-    response = client.post(
-        url, data=json.dumps({"_id": song_id, "rating": 7}), headers={"Content-Type": "application/json"}
-    )
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert responsed_data["message"] == {
+            "rating": ["Missing data for required field."],
+            "haha": ["Unknown field."],
+        }
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.BAD_REQUEST
-    assert responsed_data["message"] == {"rating": ["Rating must be in between 1 and 5"]}
+    def invalid_objectid():
+        response = client.post(
+            url, data=json.dumps({"_id": "123456", "rating": 5}), headers={"Content-Type": "application/json"}
+        )
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert responsed_data["message"] == {"_id": ["123456 is not valid ObjectId"]}
+
+    def rating_is_out_of_range():
+        response = client.post(
+            url, data=json.dumps({"_id": song_id, "rating": 7}), headers={"Content-Type": "application/json"}
+        )
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.BAD_REQUEST
+        assert responsed_data["message"] == {"rating": ["Rating must be in between 1 and 5"]}
+
+    invalid_payload()
+    invalid_objectid()
+    rating_is_out_of_range()
 
 
 def test_get_song_avg_rating():
@@ -191,37 +217,39 @@ def test_get_song_avg_rating():
 
     Return the rating data of a song include: lowest, highest, average and count
     """
-    client = app.test_client()
     response = client.get("/songs")
     responsed_data = json.loads(response.data)
     song_id1 = json.loads(response.data)["songs"][0]["_id"]
     song_id2 = json.loads(response.data)["songs"][1]["_id"]
-    response = client.post(
-        "/songs/rating",
-        data=json.dumps({"_id": song_id1, "rating": 5}),
-        headers={"Content-Type": "application/json"},
-    )
-    response = client.post(
-        "/songs/rating",
-        data=json.dumps({"_id": song_id1, "rating": 3}),
-        headers={"Content-Type": "application/json"},
-    )
 
-    url = "/songs/avg/rating/{}".format(song_id1)
+    def has_some_rates():
+        response = client.post(
+            "/songs/rating",
+            data=json.dumps({"_id": song_id1, "rating": 5}),
+            headers={"Content-Type": "application/json"},
+        )
+        response = client.post(
+            "/songs/rating",
+            data=json.dumps({"_id": song_id1, "rating": 3}),
+            headers={"Content-Type": "application/json"},
+        )
 
-    response = client.get(url)
+        url = "/songs/avg/rating/{}".format(song_id1)
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert responsed_data == {"lowest": 3, "highest": 5, "average": 4, "count": 2}
+        response = client.get(url)
 
-    """
-    Return -1 for each fields when the song doesn't have any rating
-    """
-    url = "/songs/avg/rating/{}".format(song_id2)
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert responsed_data == {"lowest": 3, "highest": 5, "average": 4, "count": 2}
 
-    response = client.get(url)
+    def has_0_rates():
+        url = "/songs/avg/rating/{}".format(song_id2)
 
-    responsed_data = json.loads(response.data)
-    assert response.status_code == HTTPStatus.OK
-    assert responsed_data == {"lowest": -1, "highest": -1, "average": -1, "count": 0}
+        response = client.get(url)
+
+        responsed_data = json.loads(response.data)
+        assert response.status_code == HTTPStatus.OK
+        assert responsed_data == {"lowest": -1, "highest": -1, "average": -1, "count": 0}
+
+    has_some_rates()
+    has_0_rates()
